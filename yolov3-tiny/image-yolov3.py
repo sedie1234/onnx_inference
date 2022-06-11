@@ -3,8 +3,7 @@
 import argparse
 import onnxruntime
 import numpy as np
-from PIL import Image, ImageDraw
-import matplotlib.pyplot as plt
+import cv2
 import time
 
 # https://cpp-learning.com/onnx-runtime_yolo/
@@ -20,29 +19,6 @@ coco_labels = ('person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'tra
             'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink',
             'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear','hair drier', 'toothbrush')
 
-def letterbox_image(image, size):
-    '''resize image with unchanged aspect ratio using padding'''
-    iw, ih = image.size
-    w, h = size
-    scale = min(w/iw, h/ih)
-    nw = int(iw*scale)
-    nh = int(ih*scale)
-
-    image = image.resize((nw,nh), Image.BICUBIC)
-    new_image = Image.new('RGB', size, (128,128,128))
-    new_image.paste(image, ((w-nw)//2, (h-nh)//2))
-    return new_image
-
-# Resized image (1x3x416x416) Original image size (1x2) which is [image.size[1], image.size[0]]
-def preprocess(img):
-    model_image_size = (416, 416)
-    boxed_image = letterbox_image(img, tuple(reversed(model_image_size)))
-    image_data = np.array(boxed_image, dtype='float32')
-    image_data /= 255.
-    image_data = np.transpose(image_data, [2, 0, 1])
-    image_data = np.expand_dims(image_data, 0)
-    return image_data
-
 def main():
 
     parser = argparse.ArgumentParser()
@@ -57,28 +33,8 @@ def main():
     is_tiny = 1
 
     model = args.model
-    img_file = args.img
+    image_file = args.img
 
-    # Load image
-    #image = Image.open('dog.jpg')
-    image = Image.open(img_file)
-
-    # Resized
-    image_data = preprocess(image)
-    image_size = np.array([image.size[1], image.size[0]], dtype=np.float32).reshape(1, 2)
-
-    # Check
-    # print(type(image_data))
-    # print(image_data)
-
-    '''
-    The model has 3 outputs. boxes: (1x'n_candidates'x4), 
-    the coordinates of all anchor boxes, scores: (1x80x'n_candidates'), 
-    the scores of all anchor boxes per class, indices: ('nbox'x3), selected indices from the boxes tensor.
-    The selected index format is (batch_index, class_index, box_index). 
-    '''
-
-    # 1. Make session
     #session = onnxruntime.InferenceSession(model)
     if(args.thread is None):
         session = onnxruntime.InferenceSession(model,  providers=['CPUExecutionProvider'])
@@ -88,6 +44,14 @@ def main():
         session = onnxruntime.InferenceSession(model,  sess_options, 
                 providers=['CPUExecutionProvider'])
 
+    img_bgr = cv2.imread(image_file)
+    # h, w, _ = img_bgr.shape
+    img = cv2.resize(img_bgr, (416, 416))
+    img = img.astype('float32') / 255.
+    img = img.transpose(2, 0, 1)
+    img = img.reshape(1,3,416,416)
+
+    image_size = np.array([416, 416], dtype=np.float32).reshape(1, 2)
 
     # 2. Get input/output name
     input_name = session.get_inputs()[0].name           # 'image'
@@ -100,7 +64,7 @@ def main():
     # 3. run
     start = time.time()
     outputs_index = session.run([output_name_boxes, output_name_scores, output_name_indices],
-                                {input_name: image_data, input_name_img_shape: image_size})
+                                {input_name: img, input_name_img_shape: image_size})
     print("time:", time.time() - start)
 
     output_boxes = outputs_index[0]
@@ -121,42 +85,29 @@ def main():
         idx_1 = (idx_[0], idx_[2])
         out_boxes.append(output_boxes[idx_1])
 
-    print(out_classes) # 14=bird
+    print(out_classes)
     print(out_scores)
     print(out_boxes)
 
-    # Make Figure and Axes
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-
-    caption = []
-    draw_box_p = []
     for i in range(0, len(out_classes)):
         box_xy = out_boxes[i]
-        p1_y = box_xy[0]
-        p1_x = box_xy[1]
-        p2_y = box_xy[2]
-        p2_x = box_xy[3]
-        draw_box_p.append([p1_x, p1_y, p2_x, p2_y])
-        draw = ImageDraw.Draw(image)
-        # Draw Box
-        #draw.rectangle(draw_box_p[i], outline=(255, 0, 0), width=5)
-        draw.rectangle(draw_box_p[i], outline=(255, 0, 0) )
+        p1_y = int(box_xy[0] * img_bgr.shape[0]/416)
+        p1_x = int(box_xy[1] * img_bgr.shape[1]/416)
+        p2_y = int(box_xy[2] * img_bgr.shape[0]/416)
+        p2_x = int(box_xy[3] * img_bgr.shape[1]/416)
 
-        caption.append(coco_labels[out_classes[i]])
-        caption.append('{:.2f}'.format(out_scores[i]))
-        # Draw Class name and Score
-        ax.text(p1_x, p1_y,
-                ': '.join(caption),
-                style='italic',
-                bbox={'facecolor': 'white', 'alpha': 0.7, 'pad': 10})
+        color = (int((1359*(out_classes[i]+1))%255), int((1256*(out_classes[i]+1))%255), int((23424*(out_classes[i]+1))%255))
 
-        caption.clear()
+        cv2.rectangle(img_bgr, (p1_x,p1_y),(p2_x,p2_y), color, 4)
 
-    # Output result image
-    img = np.asarray(image)
-    ax.imshow(img)
-    plt.show()
+        lable = coco_labels[out_classes[i]]
+        lable +=('({:.2f})'.format(out_scores[i]))
+        cv2.putText(img_bgr, lable, (p1_x, p1_y - 2), 0, 1/2, (225,255,255), thickness=1, lineType=cv2.LINE_AA)
+
+    cv2.imshow("test", img_bgr)
+    cv2.waitKey()
+
+
 
 if __name__ == '__main__':
     main()
