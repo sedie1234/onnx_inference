@@ -157,18 +157,26 @@ if __name__ == '__main__':
     img = img.astype('float32') / 255.
     img = img.transpose(2, 0, 1)
     img = img.reshape(*input_shape)
-    print(img.shape)
 
     start = time.time()
     raw_result = session.run([], {input_name: img})
     print("time:", time.time() - start)
 
-    boxes = raw_result[1].reshape(-1, 4)
-    boxes = xywh2xyxy(boxes)
-    classes_score = raw_result[0].reshape(-1, 80)
+    bare_classes_score = raw_result[0]
+    cond_max = np.max(bare_classes_score, axis=1)
+    bare_boxes = raw_result[1]
 
-    # boxes = raw_result[0].reshape(-1, 4)
-    #classes_score = raw_result[1].reshape(-1, 80)
+    classes_score = np.empty((0,80))
+    boxes = np.empty((0,4))
+    for i in range(len(cond_max)):
+        if cond_max[i] > 0.3 :
+            classes_score = np.append(classes_score, [bare_classes_score[i]], axis=0)
+            boxes = np.append(boxes, [bare_boxes[i]], axis=0)
+
+    #boxes = raw_result[1].reshape(-1, 4)
+    boxes = xywh2xyxy(boxes)
+    #classes_score = raw_result[0].reshape(-1, 80)
+
     num_cls = classes_score.shape[1]
 
     det_result = []
