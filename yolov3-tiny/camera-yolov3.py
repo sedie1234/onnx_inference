@@ -53,6 +53,9 @@ if __name__ == '__main__':
                 providers=['CPUExecutionProvider'])
 
     cap = cv2.VideoCapture(camera_index)
+    #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    #cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
     #img_bgr = cv2.imread(image_file)
     while True:
         t1 = time.perf_counter()
