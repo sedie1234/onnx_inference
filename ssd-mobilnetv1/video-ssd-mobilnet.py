@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     coco_labels = load_classes(args.names)
 
-    session = onnxruntime.InferenceSession(model_file, None)
+    session = onnxruntime.InferenceSession(model_file, providers=['CPUExecutionProvider'])
     input_name = session.get_inputs()[0].name
 
     cap = cv2.VideoCapture(video_file)
