@@ -149,7 +149,8 @@ if __name__ == '__main__':
     names = load_classes(args.names)
 
     # session = onnxruntime.InferenceSession('weights/yolov4-tiny.onnx', None)
-    session = onnxruntime.InferenceSession(model_file, None)
+    session = onnxruntime.InferenceSession(model_file, providers=['CPUExecutionProvider'])
+
     input_name = session.get_inputs()[0].name
     # print('Input Name:', input_name)
     input_shape = session.get_inputs()[0].shape
