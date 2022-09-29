@@ -137,10 +137,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', type=str, default="yolov3-tiny-iitp.onnx",
                         help='model file')
-    parser.add_argument('-v', '--camera', type=int, default=0,
+    parser.add_argument('-c', '--camera', type=int, default=0,
                         help='camera index(0-)')
     parser.add_argument('--names', type=str, default='coco.names', 
                         help='*.names path')
+    parser.add_argument('-npu', action='store_true', help="use npu")
     args = parser.parse_args()
     print(args)
     model_file  = args.model
@@ -149,7 +150,10 @@ if __name__ == '__main__':
     names = load_classes(args.names)
 
     # session = onnxruntime.InferenceSession('weights/yolov4-tiny.onnx', None)
-    session = onnxruntime.InferenceSession(model_file, None)
+    if(args.npu):
+        session = onnxruntime.InferenceSession(model_file,  providers=['KetinpuExecutionProvider'])
+    else:
+        session = onnxruntime.InferenceSession(model_file,  providers=['CPUExecutionProvider'])
     input_name = session.get_inputs()[0].name
     # print('Input Name:', input_name)
     input_shape = session.get_inputs()[0].shape
@@ -158,6 +162,8 @@ if __name__ == '__main__':
     input_w = input_shape[3]
 
     cap = cv2.VideoCapture(camera_index)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     #img_bgr = cv2.imread(image_file)
     fps = cap.get(cv2.CAP_PROP_FPS)
     interval = int(1000/fps)

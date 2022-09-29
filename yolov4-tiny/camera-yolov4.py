@@ -138,15 +138,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', type=str, default="yolov4-tiny.onnx",
                         help='model file')
-    parser.add_argument('-v', '--video', type=str, default="test.mp4",
-                        help='video file')
+    parser.add_argument('-c', '--camera', type=int, default=0,
+                        help='camera index(0-)')
     parser.add_argument('--names', type=str, default='coco.names', 
                         help='*.names path')
     parser.add_argument('-npu', action='store_true', help="use npu")
     args = parser.parse_args()
     print(args)
     model_file  = args.model
-    video_file = args.video
+    camera_index = args.camera
 
     names = load_classes(args.names)
 
@@ -162,7 +162,9 @@ if __name__ == '__main__':
     input_h = input_shape[2]
     input_w = input_shape[3]
 
-    cap = cv2.VideoCapture(video_file)
+    cap = cv2.VideoCapture(camera_index)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     #img_bgr = cv2.imread(image_file)
 
     while True:

@@ -135,6 +135,7 @@ if __name__ == '__main__':
                         help='input image')
     parser.add_argument('--names', type=str, default='coco.names', 
                         help='*.names path')
+    parser.add_argument('-npu', action='store_true', help="use npu")
     args = parser.parse_args()
     print(args)
     model_file  = args.model
@@ -142,8 +143,10 @@ if __name__ == '__main__':
 
     names = load_classes(args.names)
 
-    # session = onnxruntime.InferenceSession('weights/yolov4-tiny.onnx', None)
-    session = onnxruntime.InferenceSession(model_file, None)
+    if(args.npu):
+        session = onnxruntime.InferenceSession(model_file,  providers=['KetinpuExecutionProvider'])
+    else:
+        session = onnxruntime.InferenceSession(model_file,  providers=['CPUExecutionProvider'])
     input_name = session.get_inputs()[0].name
     # print('Input Name:', input_name)
     input_shape = session.get_inputs()[0].shape
@@ -182,7 +185,7 @@ if __name__ == '__main__':
     det_result = []
     for cls in range(num_cls):
         scores = classes_score[:, cls].flatten()
-        pick = nms(boxes, scores, 0.6, 0.4)
+        pick = nms(boxes, scores, 0.5, 0.3)
         for i in range(len(pick)):
             det_result.append([cls, scores[pick][i], boxes[pick][i]])
 

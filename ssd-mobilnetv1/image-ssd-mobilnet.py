@@ -29,6 +29,7 @@ if __name__ == '__main__':
                         help='image scale factor(float), between 0 and 1')
     parser.add_argument('--names', type=str, default='coco_91cl_bkgr.names',
                         help='*.names path')
+    parser.add_argument('-npu', action='store_true', help="use npu")
 
     args = parser.parse_args()
     print(args)
@@ -38,7 +39,10 @@ if __name__ == '__main__':
     
     coco_labels = load_classes(args.names)
 
-    session = onnxruntime.InferenceSession(model_file, providers=['CPUExecutionProvider'])
+    if(args.npu):
+        session = onnxruntime.InferenceSession(model_file,  providers=['KetinpuExecutionProvider'])
+    else:
+        session = onnxruntime.InferenceSession(model_file,  providers=['CPUExecutionProvider'])
     input_name = session.get_inputs()[0].name
 
     img_bgr = cv2.imread(image_file)

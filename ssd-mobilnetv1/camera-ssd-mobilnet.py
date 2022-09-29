@@ -29,8 +29,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--model', type=str, default="ssd_mobilenet_v1_12.onnx",
                         help='model file')
-    parser.add_argument('-v', '--video', type=str, default="test.mp4",
-                        help='video file')
+    parser.add_argument('-c', '--camera', type=int, default=0,
+                        help='camera index(0-)')
     parser.add_argument('-s', '--scale', type=float, default=1,
                         help='image scale factor(float), between 0 and 1')
     parser.add_argument('--names', type=str, default='coco_91cl_bkgr.names',
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
     model_file  = args.model
-    video_file = args.video
+    camera_index = args.camera
     scale = args.scale
 
     coco_labels = load_classes(args.names)
@@ -51,7 +51,9 @@ if __name__ == '__main__':
         session = onnxruntime.InferenceSession(model_file,  providers=['CPUExecutionProvider'])
     input_name = session.get_inputs()[0].name
 
-    cap = cv2.VideoCapture(video_file)
+    cap = cv2.VideoCapture(camera_index)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     #img_bgr = cv2.imread(image_file)
 
     while True:

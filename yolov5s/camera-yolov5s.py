@@ -14,7 +14,6 @@ detectframecount = 0
 time1 = 0
 time2 = 0
 
-
 def sort_score_index(scores, threshold=0.0, top_k=0, descending=True):
     score_index = []
     for i, score in enumerate(scores):
@@ -102,8 +101,8 @@ def plot_boxes_cv2(img, det_result, class_names=None):
         r = (1 - ratio) * colors[i][c] + ratio * colors[j][c]
         return int(r * 255)
 
-    w = img.shape[1]
-    h = img.shape[0]
+    w = img.shape[1] / 320.
+    h = img.shape[0] / 320.
 
     tl = round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1
     for det in det_result:
@@ -136,17 +135,18 @@ def plot_boxes_cv2(img, det_result, class_names=None):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-m', '--model', type=str, default="yolov4-tiny.onnx",
+    parser.add_argument('-m', '--model', type=str, default="yolov5s.onnx",
                         help='model file')
-    parser.add_argument('-v', '--video', type=str, default="test.mp4",
-                        help='video file')
+    parser.add_argument('-c', '--camera', type=int, default=0,
+                        help='camera index(0-)')
     parser.add_argument('--names', type=str, default='coco.names', 
                         help='*.names path')
     parser.add_argument('-npu', action='store_true', help="use npu")
+
     args = parser.parse_args()
     print(args)
     model_file  = args.model
-    video_file = args.video
+    camera_index = args.camera
 
     names = load_classes(args.names)
 
@@ -155,6 +155,7 @@ if __name__ == '__main__':
         session = onnxruntime.InferenceSession(model_file,  providers=['KetinpuExecutionProvider'])
     else:
         session = onnxruntime.InferenceSession(model_file,  providers=['CPUExecutionProvider'])
+
     input_name = session.get_inputs()[0].name
     # print('Input Name:', input_name)
     input_shape = session.get_inputs()[0].shape
@@ -162,8 +163,12 @@ if __name__ == '__main__':
     input_h = input_shape[2]
     input_w = input_shape[3]
 
-    cap = cv2.VideoCapture(video_file)
+    cap = cv2.VideoCapture(camera_index)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     #img_bgr = cv2.imread(image_file)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    interval = int(1000/fps)
 
     while True:
         t1 = time.perf_counter()
@@ -179,32 +184,32 @@ if __name__ == '__main__':
         img = img.reshape(*input_shape)
         #print(img.shape)
 
-        raw_result = session.run([], {input_name: img})
+        start = time.time()
+        prediction = session.run([session.get_outputs()[0].name], {input_name: img})[0]
+        print("time:", time.time() - start)
 
-        bare_classes_score = raw_result[0]
-        cond_max = np.max(bare_classes_score, axis=1)
-        bare_boxes = raw_result[1]
+        print(prediction.shape)
+        xc = prediction[..., 4] > 0.3
 
-        # remove element
-        classes_score = np.empty((0,80))
-        boxes = np.empty((0,4))
-        for i in range(len(cond_max)):
-            if cond_max[i] > 0.3 :
-                classes_score = np.append(classes_score, [bare_classes_score[i]], axis=0)
-                boxes = np.append(boxes, [bare_boxes[i]], axis=0)
+        min_wh, max_wh = 2, 7680  # (pixels) minimum and maximum box width and height
+        x = prediction[0]
+        x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
+        x = x[xc[0]]
+        
+        # Compute conf
+        x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
 
-
+        boxes = x[:, :4]
         boxes = xywh2xyxy(boxes)
-
-        num_cls = classes_score.shape[1]
+        classes_score = x[:, 5:]
 
         det_result = []
-        for cls in range(num_cls):
+        for cls in range(80):
             scores = classes_score[:, cls].flatten()
             pick = nms(boxes, scores, 0.6, 0.4)
             for i in range(len(pick)):
                 det_result.append([cls, scores[pick][i], boxes[pick][i]])
-
+        
         img_show = plot_boxes_cv2(img_bgr, det_result, names)
         cv2.imshow("test", img_show)
         #cv2.waitKey()
@@ -223,5 +228,6 @@ if __name__ == '__main__':
         time1 += 1/elapsedTime
         time2 += elapsedTime
         print(fps)
+
 
 

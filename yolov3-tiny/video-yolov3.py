@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--video', type=str, default="test.mp4",
                         help='video file')
     parser.add_argument('-x', '--thread', type=int, help="number of thread")
+    parser.add_argument('-npu', action='store_true', help="use npu")
 
     args = parser.parse_args()
 
@@ -45,12 +46,17 @@ if __name__ == '__main__':
 
     #session = onnxruntime.InferenceSession(model)
     if(args.thread is None):
-        session = onnxruntime.InferenceSession(model,  providers=['CPUExecutionProvider'])
+        if(args.npu):
+            session = onnxruntime.InferenceSession(model,  providers=['KetinpuExecutionProvider'])
+        else:
+            session = onnxruntime.InferenceSession(model,  providers=['CPUExecutionProvider'])
     else:
         sess_options = onnxruntime.SessionOptions()
         sess_options.intra_op_num_threads = args.thread
-        session = onnxruntime.InferenceSession(model,  sess_options, 
-                providers=['CPUExecutionProvider'])
+        if(args.npu):
+            session = onnxruntime.InferenceSession(model,  sess_options, providers=['KetinpuExecutionProvider'])
+        else:
+            session = onnxruntime.InferenceSession(model,  sess_options, providers=['CPUExecutionProvider'])
 
     cap = cv2.VideoCapture(video_file)
     #img_bgr = cv2.imread(image_file)
