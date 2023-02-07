@@ -141,7 +141,6 @@ if __name__ == '__main__':
                         help='video file')
     parser.add_argument('--names', type=str, default='coco.names', 
                         help='*.names path')
-    parser.add_argument('-npu', action='store_true', help="use npu")
     args = parser.parse_args()
     print(args)
     model_file  = args.model
@@ -150,10 +149,7 @@ if __name__ == '__main__':
     names = load_classes(args.names)
 
     # session = onnxruntime.InferenceSession('weights/yolov4-tiny.onnx', None)
-    if(args.npu):
-        session = onnxruntime.InferenceSession(model_file,  providers=['KetinpuExecutionProvider'])
-    else:
-        session = onnxruntime.InferenceSession(model_file,  providers=['CPUExecutionProvider'])
+    session = onnxruntime.InferenceSession(model_file, None)
     input_name = session.get_inputs()[0].name
     # print('Input Name:', input_name)
     input_shape = session.get_inputs()[0].shape

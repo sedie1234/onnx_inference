@@ -28,6 +28,7 @@ def main():
             help="image file")
     parser.add_argument('-x', '--thread', type=int, help="number of thread")
     parser.add_argument('-npu', action='store_true', help="use npu")
+    parser.add_argument('-tep', action='store_true', help="use test ep")
 
     args = parser.parse_args()
 
@@ -40,6 +41,8 @@ def main():
     if(args.thread is None):
         if(args.npu):
             session = onnxruntime.InferenceSession(model,  providers=['KetinpuExecutionProvider'])
+        elif(args.tep):
+            session = onnxruntime.InferenceSession(model,  providers=['TestExecutionProvider'])
         else:
             session = onnxruntime.InferenceSession(model,  providers=['CPUExecutionProvider'])
     else:
@@ -47,6 +50,8 @@ def main():
         sess_options.intra_op_num_threads = args.thread
         if(args.npu):
             session = onnxruntime.InferenceSession(model,  sess_options, providers=['KetinpuExecutionProvider'])
+        elif(args.tep):
+            session = onnxruntime.InferenceSession(model,  sess_options, providers=['TestExecutionProvider'])
         else:
             session = onnxruntime.InferenceSession(model,  sess_options, providers=['CPUExecutionProvider'])
 

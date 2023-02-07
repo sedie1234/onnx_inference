@@ -7,7 +7,6 @@ import onnxruntime
 import cv2
 import time
 
-
 def sort_score_index(scores, threshold=0.0, top_k=0, descending=True):
     score_index = []
     for i, score in enumerate(scores):
@@ -95,8 +94,11 @@ def plot_boxes_cv2(img, det_result, class_names=None):
         r = (1 - ratio) * colors[i][c] + ratio * colors[j][c]
         return int(r * 255)
 
-    w = img.shape[1] / 640.
-    h = img.shape[0] / 640.
+    #w = img.shape[1] / 640.
+    #h = img.shape[0] / 640.
+
+    w = img.shape[1] / 416.
+    h = img.shape[0] / 416.
 
     tl = round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1
     for det in det_result:
@@ -135,7 +137,8 @@ if __name__ == '__main__':
                         help='input image')
     parser.add_argument('--names', type=str, default='coco.names', 
                         help='*.names path')
-    parser.add_argument('-npu', action='store_true', help="use npu")
+    parser.add_argument('-tep', action='store_true', help="use test ep")
+
     args = parser.parse_args()
     print(args)
     model_file  = args.model
@@ -143,11 +146,12 @@ if __name__ == '__main__':
 
     names = load_classes(args.names)
 
+    onnxruntime.get_available_providers()
     # session = onnxruntime.InferenceSession('weights/yolov4-tiny.onnx', None)
-    if(args.npu):
-        session = onnxruntime.InferenceSession(model_file,  providers=['KetinpuExecutionProvider'])
+    if (args.tep):
+        session = onnxruntime.InferenceSession(model_file, providers=['TestExecutionProvider'])
     else:
-        session = onnxruntime.InferenceSession(model_file,  providers=['CPUExecutionProvider'])
+        session = onnxruntime.InferenceSession(model_file, providers=['CPUExecutionProvider'])
     input_name = session.get_inputs()[0].name
     # print('Input Name:', input_name)
     input_shape = session.get_inputs()[0].shape
@@ -183,12 +187,17 @@ if __name__ == '__main__':
     classes_score = x[:, 5:]
 
     det_result = []
-    for cls in range(80):
+    #for cls in range(80):
+    for cls in range(20):
         scores = classes_score[:, cls].flatten()
         pick = nms(boxes, scores, 0.5, 0.3)
         for i in range(len(pick)):
             det_result.append([cls, scores[pick][i], boxes[pick][i]])
     
     img_show = plot_boxes_cv2(img_bgr, det_result, names)
+
+
     cv2.imshow("test", img_show)
+#outimg = "q_out" + image_file#Hwan
+#cv2.imwrite(outimg, img_show)#img save
     cv2.waitKey()
